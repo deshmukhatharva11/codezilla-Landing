@@ -5,7 +5,7 @@ class AudioController {
 
   init() {
     if (typeof window === "undefined" || this.audio) return;
-    this.audio = new Audio("/audio/CodezillaAudio.mpeg");
+    this.audio = new Audio("/Audio/CodezillaAudio.mpeg");
     this.audio.loop = true; // Automatically play again and again on loop
     this.audio.volume = 0.5; // Comfortable listening volume
   }
