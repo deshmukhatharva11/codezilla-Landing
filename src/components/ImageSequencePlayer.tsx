@@ -46,6 +46,8 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
       const img = imagesRef.current[frameIndex];
       if (!img) return;
       const { drawX, drawY, drawW, drawH } = geoRef.current;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       ctx.fillStyle = "#020617";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
@@ -60,10 +62,10 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
       const cH = canvas.height;
       const scale = Math.max(cW / img.naturalWidth, cH / img.naturalHeight);
       geoRef.current = {
-        drawW: img.naturalWidth  * scale,
-        drawH: img.naturalHeight * scale,
-        drawX: (cW - img.naturalWidth  * scale) / 2,
-        drawY: (cH - img.naturalHeight * scale) / 2,
+        drawW: Math.ceil(img.naturalWidth * scale),
+        drawH: Math.ceil(img.naturalHeight * scale),
+        drawX: Math.round((cW - img.naturalWidth * scale) / 2),
+        drawY: Math.round((cH - img.naturalHeight * scale) / 2),
       };
     }, []);
 
@@ -95,7 +97,8 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
       if (!canvas) return;
 
       const mobile = window.matchMedia("(max-width: 768px)").matches;
-      const maxDPR = mobile ? 1.0 : 1.5;
+      // Allow up to 2.5x devicePixelRatio across all devices (mobile and desktop) for crystal-clear Retina HD resolution
+      const maxDPR = 2.5;
 
       const resize = () => {
         const dpr = Math.min(window.devicePixelRatio || 1, maxDPR);
@@ -103,10 +106,10 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
         canvas.height = window.innerHeight * dpr;
         canvas.style.width  = `${window.innerWidth}px`;
         canvas.style.height = `${window.innerHeight}px`;
-        ctxRef.current = canvas.getContext("2d");
+        ctxRef.current = canvas.getContext("2d", { alpha: false });
         if (ctxRef.current) {
           ctxRef.current.imageSmoothingEnabled = true;
-          ctxRef.current.imageSmoothingQuality = mobile ? "medium" : "high";
+          ctxRef.current.imageSmoothingQuality = "high";
         }
         updateGeo();
         drawnFrame.current = -1;
@@ -186,8 +189,8 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
           zIndex: 0,
           transform: "translateZ(0)",
           backfaceVisibility: "hidden",
-          // Only apply color filters on desktop — mobile GPUs choke on CSS filters during scroll
-          filter: isMobile ? "none" : "contrast(1.06) saturate(1.14) brightness(1.03)",
+          // Apply rich HDR contrast and saturation uniformly across desktop and mobile
+          filter: "contrast(1.08) saturate(1.15) brightness(1.03)",
         }}
       />
     );
