@@ -189,8 +189,8 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
           zIndex: 0,
           transform: "translateZ(0)",
           backfaceVisibility: "hidden",
-          // Apply rich HDR contrast and saturation uniformly across desktop and mobile
-          filter: "contrast(1.08) saturate(1.15) brightness(1.03)",
+          // Avoid DOM CSS filters on mobile — iOS Safari downsamples high-DPI canvas textures by 50% when CSS filters are active
+          filter: isMobile ? "none" : "contrast(1.08) saturate(1.15) brightness(1.03)",
         }}
       />
     );

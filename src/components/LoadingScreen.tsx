@@ -52,6 +52,7 @@ export default function LoadingScreen({
   }[]>([]);
 
   useEffect(() => {
+    audioController.init();
     const timer = setTimeout(() => {
       setParticles(generateLoadingScreenParticles());
     }, 0);

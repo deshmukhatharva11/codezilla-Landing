@@ -6,8 +6,27 @@ class AudioController {
   init() {
     if (typeof window === "undefined" || this.audio) return;
     this.audio = new Audio("/Audio/CodezillaAudio.mpeg");
+    this.audio.preload = "auto";
     this.audio.loop = true; // Automatically play again and again on loop
     this.audio.volume = 0.5; // Comfortable listening volume
+    this.audio.load();
+
+    // Global unlocker for iOS / Android mobile browsers where play() requires touch gesture
+    const unlock = () => {
+      if (this.audio && this.audio.paused && !this.isMuted) {
+        this.audio.play().catch(() => {});
+      }
+      if (typeof window !== "undefined") {
+        window.removeEventListener("touchstart", unlock);
+        window.removeEventListener("click", unlock);
+        window.removeEventListener("pointerdown", unlock);
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("touchstart", unlock, { passive: true });
+      window.addEventListener("click", unlock, { passive: true });
+      window.addEventListener("pointerdown", unlock, { passive: true });
+    }
   }
 
   play() {
@@ -26,13 +45,13 @@ class AudioController {
     this.init();
     if (!this.audio) return;
 
-    if (this.audio.paused) {
+    if (this.audio.paused || this.isMuted) {
       this.audio.muted = false;
       this.isMuted = false;
       this.audio.play().catch(() => {});
     } else {
-      this.isMuted = !this.isMuted;
-      this.audio.muted = this.isMuted;
+      this.isMuted = true;
+      this.audio.muted = true;
     }
     this.notifyListeners();
   }
