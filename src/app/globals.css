@@ -1,0 +1,658 @@
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap');
+@import "tailwindcss";
+
+:root {
+  --background: #000000;
+  --foreground: #ffffff;
+
+  /* Dragon atmosphere palette — electric blue, pure white, deep navy */
+  --electric-blue: #00A8FF;
+  --electric-blue-bright: #33BBFF;
+  --electric-blue-dim: #0077CC;
+  --electric-glow: rgba(0, 168, 255, 0.55);
+  --electric-glow-soft: rgba(0, 168, 255, 0.20);
+
+  /* Glass — very dark navy, nearly transparent */
+  --glass-bg: rgba(3, 7, 25, 0.38);
+  --glass-border: rgba(0, 168, 255, 0.10);
+
+  /* Typography — Satoshi font globally */
+  --font-heading: 'Satoshi', sans-serif;
+  --font-body: 'Satoshi', sans-serif;
+
+  /* Strict left content column */
+  --content-col-width: min(500px, 42vw);
+  --content-max-width: 1400px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+}
+
+/* ── Reset ── */
+*, *::before, *::after {
+  margin: 0; padding: 0; box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: auto;
+  overflow-x: hidden;
+  /* Use dvh to track the ACTUAL visible browser viewport including URL bar changes */
+  height: 100%;
+}
+
+body {
+  /* Deep navy matching the darkest dragon frame — eliminates black flash when URL bar hides */
+  background: #020617;
+  color: #fff;
+  font-family: var(--font-body);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent body from ever being taller than the visible viewport */
+  min-height: 100dvh;
+}
+
+/* ═══════════════════════════════════════════════════
+   TYPOGRAPHY — Satoshi Bold & Dragon Atmosphere
+   Pure white + electric blue. NO gray, NO gradient clips.
+═══════════════════════════════════════════════════ */
+
+/* Hero Heading — Satoshi Bold, large, pure white with electric glow */
+.text-hero-massive {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.0;
+  font-size: clamp(48px, 6.5vw, 86px);
+  color: #ffffff;
+  /*
+    Electric halo matching the dragon eyes:
+    white sharp text-shadow + diffused blue glow below
+  */
+  text-shadow:
+    0 0 0px #fff,
+    0 2px 25px rgba(0, 0, 0, 0.95),
+    0 0 60px rgba(0, 0, 0, 0.7),
+    0 4px 40px rgba(0, 168, 255, 0.08);
+}
+
+/* Section Title — electric blue accent on last word only */
+.text-section-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  font-size: clamp(32px, 3.8vw, 52px);
+  color: #ffffff;
+  text-shadow:
+    0 2px 20px rgba(0, 0, 0, 0.9),
+    0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Cinematic accent — chrome-white to electric-blue gradient with atmospheric glow */
+.text-accent-blue, .text-accent-chrome {
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #a8d8ff 35%,
+    #00A8FF 65%,
+    #0066cc 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter:
+    drop-shadow(0 0 12px rgba(0, 168, 255, 0.85))
+    drop-shadow(0 0 30px rgba(0, 168, 255, 0.4))
+    drop-shadow(0 4px 20px rgba(0, 100, 200, 0.3));
+}
+
+/* Body text — soft white, readable against dark backgrounds */
+.text-subheading {
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.65;
+  font-size: clamp(15px, 1.5vw, 19px);
+  color: rgba(255, 255, 255, 0.70);
+}
+
+.text-body-custom {
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.7;
+  font-size: clamp(13px, 1.2vw, 15px);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Label — small caps tracking, electric blue tint */
+.text-label {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  color: rgba(0, 168, 255, 0.65);
+}
+
+/* Navigation & button text */
+.text-nav-custom {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.text-btn-custom {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+/* ═══════════════════════════════════════════════════
+   SCROLL OVERLAY SECTIONS
+   Sections are fixed-position overlays on the canvas.
+   They start VISIBLE for hero, hidden for others.
+═══════════════════════════════════════════════════ */
+
+.scroll-overlay-section {
+  position: fixed;
+  /* Use dvh so the overlay tracks the real visible area including URL bar changes */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100dvh;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity, transform;
+  transform: translate3d(0,0,0);
+  backface-visibility: hidden;
+}
+
+/* Hero section overrides — starts visible immediately */
+.scroll-overlay-section[data-section="hero"] {
+  opacity: 1;
+}
+
+.scroll-overlay-section > * {
+  pointer-events: auto;
+}
+
+/* Padding wrapper that provides the 12-column global positioning grid */
+.scroll-overlay-content {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 85px 5vw 100px 5vw; /* Optimized padding to position cards slightly higher and centered */
+  
+  /* 12-Column Grid Engine */
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  align-items: start;
+  
+  /* Force content subtree to own compositing layer */
+  transform: translateZ(0);
+}
+
+/* Strict left column — reserves space so text NEVER crosses the dragon */
+.content-left-col {
+  /* Mobile: full width */
+  grid-column: span 12 / span 12;
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .content-left-col { 
+    /* Desktop: restrict to 5 columns (~41% of width) */
+    grid-column: span 5 / span 5; 
+  }
+}
+
+@media (min-width: 1280px) {
+  .content-left-col { 
+    /* Large Desktop: keep constrained to 5 columns */
+    grid-column: span 5 / span 5; 
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   GLASSMORPHISM CARD — Electric Edition
+   Deep navy, blue-tinted frosted glass with premium heavy blur
+═══════════════════════════════════════════════════ */
+
+.glass-card {
+  position: relative;
+  background: rgba(2, 6, 23, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 168, 255, 0.08);
+  border-radius: 16px;
+  /* isolation:isolate scopes the stacking context so backdrop-filter
+     only composites within this card, not the full page */
+  isolation: isolate;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(0, 168, 255, 0.02);
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(0, 168, 255, 0.15);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 25px rgba(0, 168, 255, 0.06);
+}
+
+/* Override to remove blur entirely from Hero card */
+.glass-card-no-blur {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(3, 7, 30, 0.25) !important;
+}
+
+/* Top sheen — subtle reflection */
+.glass-card::before {
+  content: '';
+  position: absolute;
+  inset-x: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 168, 255, 0.15) 40%,
+    rgba(255, 255, 255, 0.08) 60%,
+    transparent 100%
+  );
+  border-radius: 14px 14px 0 0;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════
+   PREMIUM AWWWARDS CARD
+   Floating, holographic glass panel with dynamic hover
+═══════════════════════════════════════════════════ */
+
+.awwwards-card {
+  position: relative;
+  background: rgba(2, 6, 23, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 168, 255, 0.08);
+  border-radius: 24px;
+  box-shadow: 
+    0 20px 40px -10px rgba(0, 0, 0, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.06),
+    0 0 30px rgba(0, 168, 255, 0.03);
+  /* NO overflow:hidden — lets CardItem children translateZ above the surface */
+  transition: border-color 0.6s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.6s cubic-bezier(0.16, 1, 0.3, 1), background 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  isolation: isolate;
+}
+
+/* Clip variant for cards that have image tops (e.g. ProjectsSection accent band) */
+.awwwards-card.overflow-hidden {
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+
+
+.awwwards-card:hover {
+  background: rgba(2, 6, 23, 0.25);
+  border-color: rgba(0, 168, 255, 0.35);
+  box-shadow: 
+    0 30px 60px -12px rgba(0, 0, 0, 0.7),
+    inset 0 1px 1px rgba(255, 255, 255, 0.15),
+    0 0 50px rgba(0, 168, 255, 0.15);
+}
+
+/* Dynamic glare sweep */
+.awwwards-card::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -150%;
+  width: 50%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-20deg);
+  transition: left 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.awwwards-card:hover::after {
+  left: 200%;
+}
+
+.awwwards-icon-wrapper {
+  background: rgba(0, 168, 255, 0.05);
+  border: 1px solid rgba(0, 168, 255, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 10px rgba(0, 168, 255, 0.05);
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.awwwards-card:hover .awwwards-icon-wrapper {
+  background: rgba(0, 168, 255, 0.15);
+  border-color: rgba(0, 168, 255, 0.4);
+  box-shadow: 
+    inset 0 0 20px rgba(0, 168, 255, 0.15),
+    0 0 20px rgba(0, 168, 255, 0.3);
+  transform: scale(1.08);
+}
+
+.awwwards-card-title {
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), color 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.awwwards-card:hover .awwwards-card-title {
+  transform: translateY(-2px);
+  color: var(--electric-blue);
+}
+
+/* ═══════════════════════════════════════════════════
+   ACCENT LINE — electric blue left-to-right sweep
+═══════════════════════════════════════════════════ */
+
+.accent-line {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--electric-blue) 0%,
+    rgba(0, 168, 255, 0.3) 60%,
+    transparent 100%
+  );
+  border-radius: 1px;
+  transform-origin: left center;
+}
+
+/* ═══════════════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════════════ */
+
+/* Nav logo dot pulse */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.6); }
+}
+.dot-pulse { animation: pulse 2.2s ease-in-out infinite; }
+
+/* ── Fog Overlay Animations (replaces Framer Motion — compositor-threaded) ── */
+@keyframes fogPulseLeft {
+  0%, 100% { opacity: 0.4; transform: translate3d(-20px, 0, 0); }
+  50%       { opacity: 0.7; transform: translate3d(20px,  0, 0); }
+}
+@keyframes fogPulseRight {
+  0%, 100% { opacity: 0.3; transform: translate3d(20px, 0, 0); }
+  50%       { opacity: 0.6; transform: translate3d(-20px, 0, 0); }
+}
+@keyframes fogPulseCenter {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.1); }
+}
+
+.fog-left   { animation: fogPulseLeft   12s ease-in-out infinite; }
+.fog-right  { animation: fogPulseRight  10s ease-in-out infinite 2s; }
+.fog-center { animation: fogPulseCenter  6s ease-in-out infinite 1s; }
+
+/* Audio waveform bars */
+@keyframes waveBar {
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1.0); }
+}
+.wave-bar {
+  transform-origin: bottom center;
+  animation: waveBar 0.75s ease-in-out infinite;
+}
+.wave-bar:nth-child(1) { animation-delay: 0s; }
+.wave-bar:nth-child(2) { animation-delay: 0.18s; }
+.wave-bar:nth-child(3) { animation-delay: 0.36s; }
+
+/* ═══════════════════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════════════════ */
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 168, 255, 0.3);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 168, 255, 0.5); }
+
+/* ═══════════════════════════════════════════════════
+   UTILITY
+═══════════════════════════════════════════════════ */
+
+.blue-glow {
+  box-shadow:
+    0 0 15px rgba(0,168,255,0.12),
+    0 0 30px rgba(0,168,255,0.05);
+}
+
+.text-glow {
+  text-shadow:
+    0 0 10px rgba(0,168,255,0.55),
+    0 0 25px rgba(0,168,255,0.25);
+}
+
+::selection {
+  background: rgba(0, 168, 255, 0.25);
+  color: white;
+}
+
+/* ═══════════════════════════════════════════════════
+   FAN CARD CAROUSEL
+   Portrait card sizing + layout container
+═══════════════════════════════════════════════════ */
+
+.fan-layout {
+  height: 22rem;   /* mobile */
+  position: relative;
+}
+
+.fan-card {
+  position: absolute;
+  /* Portrait ratio ~4:7 */
+  width: 7rem;
+  height: 11rem;
+  border-radius: 16px;
+  overflow: hidden;
+  will-change: transform, opacity;
+  transform-origin: bottom center;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(0, 168, 255, 0.12);
+  transition: box-shadow 0.3s ease;
+}
+
+.fan-card:hover {
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(0, 168, 255, 0.35),
+    0 0 20px rgba(0, 168, 255, 0.15);
+}
+
+@media (min-width: 480px) {
+  .fan-layout { height: 26rem; }
+  .fan-card { width: 9rem; height: 14rem; }
+}
+
+@media (min-width: 640px) {
+  .fan-layout { height: 28rem; }
+  .fan-card { width: 10rem; height: 15.5rem; }
+}
+
+@media (min-width: 768px) {
+  .fan-layout { height: 34rem; }
+  .fan-card { width: 12rem; height: 19rem; border-radius: 20px; }
+}
+
+@media (min-width: 1024px) {
+  .fan-layout { height: 38rem; }
+  .fan-card { width: 14rem; height: 22rem; border-radius: 24px; }
+}
+
+/* ═══════════════════════════════════════════════════
+   GLOBAL SPACING SYSTEM
+   Consistent vertical rhythm for every section
+═══════════════════════════════════════════════════ */
+
+.text-label + h1,
+.text-label + h2 {
+  margin-top: 1.25rem;
+}
+
+h1 + p, h1 + .text-subheading,
+h2 + p, h2 + .text-subheading {
+  margin-top: 1.5rem;
+}
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE TYPOGRAPHY SCALE
+   Ensures text never breaks at weird sizes on mobile
+═══════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .text-hero-massive {
+    font-size: clamp(36px, 9.5vw, 56px);
+    line-height: 1.05;
+  }
+
+  .text-section-title {
+    font-size: clamp(26px, 7vw, 38px);
+    line-height: 1.1;
+  }
+
+  .scroll-overlay-section {
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+    max-height: 100dvh;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .scroll-overlay-content {
+    padding: 85px 5vw 60px 5vw;
+    margin: auto 0;
+    gap: 1.25rem;
+  }
+
+  .awwwards-card {
+    border-radius: 20px;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .text-hero-massive {
+    font-size: clamp(30px, 10.5vw, 44px);
+  }
+
+  .text-section-title {
+    font-size: clamp(24px, 7.5vw, 32px);
+  }
+
+  .scroll-overlay-content {
+    padding: 55px 4vw 65px 4vw;
+  }
+
+  .awwwards-card {
+    border-radius: 16px;
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   ICON BADGE — Shared across all sections
+   Consistent icon badge system
+═══════════════════════════════════════════════════ */
+
+.icon-badge {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 168, 255, 0.15);
+  background: rgba(0, 168, 255, 0.05);
+  transition: border-color 0.4s ease, background 0.4s ease, box-shadow 0.4s ease;
+}
+
+.awwwards-card:hover .icon-badge {
+  border-color: rgba(0, 168, 255, 0.3);
+  background: rgba(0, 168, 255, 0.1);
+  box-shadow: 0 0 16px rgba(0, 168, 255, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════
+   TAG CHIPS — Solutions & Projects cards
+═══════════════════════════════════════════════════ */
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(0, 168, 255, 0.05);
+  border: 1px solid rgba(0, 168, 255, 0.15);
+  color: var(--electric-blue);
+  transition: background 0.3s ease, border-color 0.3s ease;
+  white-space: nowrap;
+}
+
+.awwwards-card:hover .tag-chip {
+  background: rgba(0, 168, 255, 0.1);
+  border-color: rgba(0, 168, 255, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════
+   SECTION META LABEL ROW — decorative accent line
+   Usage: <div class="section-meta-row"><p class="text-label">...</p></div>
+═══════════════════════════════════════════════════ */
+
+.section-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.section-meta-row::before {
+  content: '';
+  display: block;
+  width: 24px;
+  height: 1px;
+  background: var(--electric-blue);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
