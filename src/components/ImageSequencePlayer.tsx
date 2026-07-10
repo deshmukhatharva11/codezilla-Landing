@@ -3,8 +3,6 @@
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 
 const TOTAL_FRAMES = 212;
-
-// Source frame dimensions (all frames are identical 4K resolution)
 const SRC_W = 3840;
 const SRC_H = 2160;
 
@@ -28,18 +26,17 @@ type FrameImage = HTMLImageElement | ImageBitmap;
 
 const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerProps>(
   ({ onLoadProgress, onLoadComplete, className = "" }, ref) => {
-    const canvasRef      = useRef<HTMLCanvasElement>(null);
-    const ctxRef         = useRef<CanvasRenderingContext2D | null>(null);
-    const imagesRef      = useRef<FrameImage[]>([]);
-    const pendingFrame   = useRef(0);
-    const drawnFrame     = useRef(-1);
-    const isLoadedRef    = useRef(false);
-    const loadedCount    = useRef(0);
-    const rafLoopId      = useRef(0);
-    const precropRef     = useRef(false);
+    const canvasRef    = useRef<HTMLCanvasElement>(null);
+    const ctxRef       = useRef<CanvasRenderingContext2D | null>(null);
+    const imagesRef    = useRef<FrameImage[]>([]);
+    const pendingFrame = useRef(0);
+    const drawnFrame   = useRef(-1);
+    const isLoadedRef  = useRef(false);
+    const loadedCount  = useRef(0);
+    const rafLoopId    = useRef(0);
+    const precropRef   = useRef(false);
     const [isMobile, setIsMobile] = useState(false);
 
-    // Detect mobile after mount — avoids SSR hydration mismatch
     useEffect(() => {
       setIsMobile(window.matchMedia("(max-width: 768px)").matches);
     }, []);
@@ -58,11 +55,10 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       if (precropRef.current) {
-        // Mobile: bitmaps are already pre-cropped and resized to canvas dimensions.
-        // Perfect 1:1 pixel blit — no runtime scaling, no upscaling blur.
+        // Mobile: bitmaps are already pre-cropped to canvas size → 1:1 blit
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       } else {
-        // Desktop: source-crop from full-res 4K image at draw time
+        // Desktop: source-crop from full-resolution image at draw time
         const imgW = (img as HTMLImageElement).naturalWidth || (img as ImageBitmap).width;
         const imgH = (img as HTMLImageElement).naturalHeight || (img as ImageBitmap).height;
         if (!imgW || !imgH) return;
@@ -86,7 +82,7 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
       }
     }, []);
 
-    // ── Dedicated RAF loop ───────────────────────────────────────────────────
+    // ── RAF loop ─────────────────────────────────────────────────────────────
     const startRafLoop = useCallback(() => {
       const loop = () => {
         const f = pendingFrame.current;
@@ -108,18 +104,17 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
       getCanvas: () => canvasRef.current,
     }));
 
-    // ── Resize — recache ctx after backing store changes ─────────────────────
+    // ── Resize ───────────────────────────────────────────────────────────────
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-
       const mobile = window.matchMedia("(max-width: 768px)").matches;
 
       const resize = () => {
-        // Cap DPR at 2 on mobile so canvas never exceeds source image pixel count.
-        // At DPR 3 a phone creates a ~1290×2790 canvas, but the 4K source only has
-        // 2160px of height — the browser must upscale → blur. At DPR 2 the canvas
-        // is ~860×1860, which the 2160px source can downscale into → sharp.
+        // Cap DPR at 2 on mobile. At DPR 3 the canvas is ~1290×2790 but the
+        // 4K source only has 2160px height → forced upscale → blur.
+        // At DPR 2 the canvas is ~860×1860, which the 2160px source can
+        // downscale into cleanly → sharp.
         const dpr = mobile
           ? Math.min(window.devicePixelRatio || 1, 2)
           : (window.devicePixelRatio || 1);
@@ -138,7 +133,6 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
 
       resize();
 
-      // On mobile, debounce resize to avoid address-bar jitter destroying the canvas buffer mid-scroll
       let resizeTimer: ReturnType<typeof setTimeout>;
       const onResize = () => {
         if (mobile) {
@@ -148,7 +142,6 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
           resize();
         }
       };
-
       window.addEventListener("resize", onResize, { passive: true });
       return () => {
         window.removeEventListener("resize", onResize);
@@ -157,12 +150,24 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
     }, [blit]);
 
     // ── Preloader ────────────────────────────────────────────────────────────
-    // On mobile: fetch → blob → createImageBitmap (pre-cropped & resized to
-    //   canvas dimensions). Each stored bitmap is ~6 MB instead of ~33 MB,
-    //   keeping total decoded memory at ~1.3 GB instead of ~7 GB.
-    //   This prevents the mobile browser from silently evicting / downgrading
-    //   decoded images — which was the root cause of the blur.
-    // On desktop: new Image() at full 4K resolution (desktops have plenty RAM).
+    //
+    // WHY MOBILE IMAGES WERE BLURRY:
+    // 212 frames × 3840×2160 = 212 × 33 MB = ~7 GB of decoded pixels.
+    // Mobile browsers cap at ~1-2 GB. When exceeded, the browser silently
+    // evicts decoded image data and serves a low-res placeholder → blur.
+    //
+    // FIX (mobile only):
+    //   1. Load each frame as new Image() at full 4K (proven, reliable).
+    //   2. Paint the center crop onto a temporary canvas at canvas dimensions
+    //      using the standard 9-arg drawImage (works in ALL browsers).
+    //   3. Convert the temp canvas to a GPU-pinned ImageBitmap using the
+    //      basic createImageBitmap(canvas) form (no options, universal support).
+    //   4. Release the full-res Image (~33 MB) and temp canvas (~6 MB).
+    //   5. Only the compact ~6 MB ImageBitmap is kept in memory.
+    //   Result: 212 × 6 MB = ~1.3 GB total. Fits in mobile memory. Sharp.
+    //
+    // Desktop: loads full 4K Images directly (desktops have 16+ GB RAM).
+    //
     useEffect(() => {
       const images: FrameImage[] = new Array(TOTAL_FRAMES);
       imagesRef.current = images;
@@ -172,14 +177,14 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
       const usePrecrop = mobile && hasBitmap;
       precropRef.current = usePrecrop;
 
-      // Calculate canvas pixel dimensions (must match resize logic above)
+      // Calculate canvas pixel dimensions (must match resize logic)
       const dpr = mobile
         ? Math.min(window.devicePixelRatio || 1, 2)
         : (window.devicePixelRatio || 1);
       const cW = Math.round(window.innerWidth  * dpr);
       const cH = Math.round(window.innerHeight * dpr);
 
-      // Pre-calculate the source crop rectangle from the 4K frames
+      // Pre-calculate source crop rectangle from 4K frames for mobile
       const canvasAspect = cW / cH;
       const imgAspect    = SRC_W / SRC_H;
       let cropX = 0, cropY = 0, cropW = SRC_W, cropH = SRC_H;
@@ -193,8 +198,9 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
         cropY = Math.round((SRC_H - cropH) / 2);
       }
 
-      // Lower concurrency on mobile to reduce simultaneous memory spikes
-      const CONCURRENCY = mobile ? 3 : 6;
+      // Lower concurrency on mobile to limit peak transient memory
+      // (each in-flight frame briefly holds ~33 MB full-res + ~6 MB bitmap)
+      const CONCURRENCY = mobile ? 2 : 6;
       let idx = 0;
       let active = 0;
 
@@ -202,9 +208,7 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
         active--;
         loadedCount.current++;
         onLoadProgress?.(loadedCount.current / TOTAL_FRAMES);
-
         if (i === 0) blit(0);
-
         if (loadedCount.current === TOTAL_FRAMES) {
           isLoadedRef.current = true;
           onLoadComplete?.();
@@ -214,33 +218,55 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
         }
       };
 
+      // ── Mobile loader: Image → canvas crop → ImageBitmap ──────────────
       const loadMobile = (i: number) => {
-        fetch(getFramePath(i))
-          .then(r => r.blob())
-          .then(blob =>
-            // Crop the center strip from the 4K source and resize to exact
-            // canvas pixel dimensions in one GPU-accelerated decode step.
-            // The browser only stores the small canvas-sized bitmap (~6 MB),
-            // not the full 4K bitmap (~33 MB).
-            createImageBitmap(blob, cropX, cropY, cropW, cropH, {
-              resizeWidth:   cW,
-              resizeHeight:  cH,
-              resizeQuality: "high",
-            })
-          )
-          .then(bitmap => {
-            images[i] = bitmap;
-            finish(i);
+        const img = new Image();
+        img.src = getFramePath(i);
+        img.decode()
+          .then(async () => {
+            try {
+              // Paint just the needed center-crop at exact canvas resolution
+              const tmp = document.createElement("canvas");
+              tmp.width = cW;
+              tmp.height = cH;
+              const tmpCtx = tmp.getContext("2d", { alpha: false })!;
+              tmpCtx.imageSmoothingEnabled = true;
+              tmpCtx.imageSmoothingQuality = "high";
+              tmpCtx.drawImage(
+                img,
+                cropX, cropY, cropW, cropH, // source crop from 4K
+                0, 0, cW, cH               // destination = full canvas
+              );
+
+              // Create a GPU-pinned bitmap from the pre-rendered canvas.
+              // Uses the basic createImageBitmap(canvas) — no options needed,
+              // so it works on Chrome, Firefox, Safari, Brave, etc.
+              const bitmap = await createImageBitmap(tmp);
+
+              // Release the 33 MB full-res image and 6 MB temp canvas.
+              // Only the 6 MB ImageBitmap survives — GPU-pinned, never evicted.
+              img.src = "";
+              tmp.width = 0;
+              tmp.height = 0;
+
+              images[i] = bitmap;
+              finish(i);
+            } catch {
+              // Fallback: keep the full-res Image if bitmap creation fails
+              images[i] = img;
+              finish(i);
+            }
           })
           .catch(() => {
-            // Fallback: load as regular Image if createImageBitmap fails
-            const img = new Image();
-            img.src = getFramePath(i);
-            img.onload = () => { images[i] = img; finish(i); };
-            img.onerror = () => finish(i);
+            // If decode fails, try onload as last resort
+            const fallback = new Image();
+            fallback.onload = () => { images[i] = fallback; finish(i); };
+            fallback.onerror = () => finish(i);
+            fallback.src = getFramePath(i);
           });
       };
 
+      // ── Desktop loader: full-res Image directly ───────────────────────
       const loadDesktop = (i: number) => {
         const img = new Image();
         img.src = getFramePath(i);
