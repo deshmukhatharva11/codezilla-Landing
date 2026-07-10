@@ -45,9 +45,13 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
       if (!ctx || !canvas) return;
       const img = imagesRef.current[frameIndex];
       if (!img) return;
+      if (geoRef.current.drawW === 0) {
+        updateGeo();
+      }
       const { drawX, drawY, drawW, drawH } = geoRef.current;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
+      ctx.filter = "contrast(1.08) saturate(1.15) brightness(1.03)";
       ctx.fillStyle = "#020617";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
@@ -62,10 +66,10 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
       const cH = canvas.height;
       const scale = Math.max(cW / img.naturalWidth, cH / img.naturalHeight);
       geoRef.current = {
-        drawW: Math.ceil(img.naturalWidth * scale),
-        drawH: Math.ceil(img.naturalHeight * scale),
-        drawX: Math.round((cW - img.naturalWidth * scale) / 2),
-        drawY: Math.round((cH - img.naturalHeight * scale) / 2),
+        drawW: img.naturalWidth * scale,
+        drawH: img.naturalHeight * scale,
+        drawX: (cW - img.naturalWidth * scale) / 2,
+        drawY: (cH - img.naturalHeight * scale) / 2,
       };
     }, []);
 
@@ -97,11 +101,10 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
       if (!canvas) return;
 
       const mobile = window.matchMedia("(max-width: 768px)").matches;
-      // Allow up to 2.5x devicePixelRatio across all devices (mobile and desktop) for crystal-clear Retina HD resolution
-      const maxDPR = 2.5;
 
       const resize = () => {
-        const dpr = Math.min(window.devicePixelRatio || 1, maxDPR);
+        // Use exact physical device pixel ratio without capping for 100% native clarity on mobile & desktop
+        const dpr = window.devicePixelRatio || 1;
         canvas.width  = window.innerWidth  * dpr;
         canvas.height = window.innerHeight * dpr;
         canvas.style.width  = `${window.innerWidth}px`;
@@ -110,6 +113,7 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
         if (ctxRef.current) {
           ctxRef.current.imageSmoothingEnabled = true;
           ctxRef.current.imageSmoothingQuality = "high";
+          ctxRef.current.filter = "contrast(1.08) saturate(1.15) brightness(1.03)";
         }
         updateGeo();
         drawnFrame.current = -1;
@@ -189,8 +193,8 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
           zIndex: 0,
           transform: "translateZ(0)",
           backfaceVisibility: "hidden",
-          // Avoid DOM CSS filters on mobile — iOS Safari downsamples high-DPI canvas textures by 50% when CSS filters are active
-          filter: isMobile ? "none" : "contrast(1.08) saturate(1.15) brightness(1.03)",
+          // Keep DOM filter clean so mobile webkits never downscale the high-DPI VRAM canvas buffer
+          filter: "none",
         }}
       />
     );
