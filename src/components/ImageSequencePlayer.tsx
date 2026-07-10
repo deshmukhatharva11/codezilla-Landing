@@ -30,31 +30,12 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
     const isLoadedRef  = useRef(false);
     const loadedCount  = useRef(0);
     const rafLoopId    = useRef(0);
-    const geoRef = useRef({ drawX: 0, drawY: 0, drawW: 0, drawH: 0 });
+    const geoRef = useRef({ sx: 0, sy: 0, sw: 0, sh: 0 });
     const [isMobile, setIsMobile] = useState(false);
 
     // Detect mobile after mount — avoids SSR hydration mismatch
     useEffect(() => {
       setIsMobile(window.matchMedia("(max-width: 768px)").matches);
-    }, []);
-
-    // ── Pure blit — zero allocations, just copies pixels ─────────────────────
-    const blit = useCallback((frameIndex: number) => {
-      const ctx = ctxRef.current;
-      const canvas = canvasRef.current;
-      if (!ctx || !canvas) return;
-      const img = imagesRef.current[frameIndex];
-      if (!img) return;
-      if (geoRef.current.drawW === 0) {
-        updateGeo();
-      }
-      const { drawX, drawY, drawW, drawH } = geoRef.current;
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.filter = "contrast(1.08) saturate(1.15) brightness(1.03)";
-      ctx.fillStyle = "#020617";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, drawX, drawY, drawW, drawH);
     }, []);
 
     // ── Recalculate cover-fit geometry — only runs on resize ─────────────────
@@ -64,14 +45,56 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
       const img = imagesRef.current[0];
       const cW = canvas.width;
       const cH = canvas.height;
-      const scale = Math.max(cW / img.naturalWidth, cH / img.naturalHeight);
+      if (!cW || !cH || !img.naturalWidth || !img.naturalHeight) return;
+
+      const canvasAspect = cW / cH;
+      const imgAspect = img.naturalWidth / img.naturalHeight;
+
+      let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+
+      if (canvasAspect < imgAspect) {
+        // Canvas is narrower/taller than 16:9 image (mobile phone portrait screen)
+        // Crop the left and right sides of the 4K source image cleanly
+        sh = img.naturalHeight;
+        sw = sh * canvasAspect;
+        sx = (img.naturalWidth - sw) / 2;
+        sy = 0;
+      } else {
+        // Canvas is wider than 16:9 image (ultra-wide desktop screen)
+        // Crop the top and bottom of the 4K source image cleanly
+        sw = img.naturalWidth;
+        sh = sw / canvasAspect;
+        sx = 0;
+        sy = (img.naturalHeight - sh) / 2;
+      }
+
       geoRef.current = {
-        drawW: img.naturalWidth * scale,
-        drawH: img.naturalHeight * scale,
-        drawX: (cW - img.naturalWidth * scale) / 2,
-        drawY: (cH - img.naturalHeight * scale) / 2,
+        sx: Math.round(sx),
+        sy: Math.round(sy),
+        sw: Math.round(sw),
+        sh: Math.round(sh),
       };
     }, []);
+
+    // ── Pure blit — zero allocations, just copies pixels ─────────────────────
+    const blit = useCallback((frameIndex: number) => {
+      const ctx = ctxRef.current;
+      const canvas = canvasRef.current;
+      if (!ctx || !canvas) return;
+      const img = imagesRef.current[frameIndex];
+      if (!img) return;
+      if (geoRef.current.sw === 0) {
+        updateGeo();
+      }
+      const { sx, sy, sw, sh } = geoRef.current;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      if (sw > 0 && sh > 0) {
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      }
+    }, [updateGeo]);
 
     // ── Dedicated RAF loop ───────────────────────────────────────────────────
     const startRafLoop = useCallback(() => {
@@ -105,15 +128,14 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
       const resize = () => {
         // Use exact physical device pixel ratio without capping for 100% native clarity on mobile & desktop
         const dpr = window.devicePixelRatio || 1;
-        canvas.width  = window.innerWidth  * dpr;
-        canvas.height = window.innerHeight * dpr;
+        canvas.width  = Math.round(window.innerWidth  * dpr);
+        canvas.height = Math.round(window.innerHeight * dpr);
         canvas.style.width  = `${window.innerWidth}px`;
         canvas.style.height = `${window.innerHeight}px`;
         ctxRef.current = canvas.getContext("2d", { alpha: false });
         if (ctxRef.current) {
           ctxRef.current.imageSmoothingEnabled = true;
           ctxRef.current.imageSmoothingQuality = "high";
-          ctxRef.current.filter = "contrast(1.08) saturate(1.15) brightness(1.03)";
         }
         updateGeo();
         drawnFrame.current = -1;
@@ -188,13 +210,12 @@ const ImageSequencePlayer = forwardRef<ImageSequenceHandle, ImageSequencePlayerP
         ref={canvasRef}
         className={`fixed top-0 left-0 ${className}`}
         style={{
-          width: "100vw",
-          height: "100dvh",
+          width: "100%",
+          height: "100%",
           zIndex: 0,
           transform: "translateZ(0)",
           backfaceVisibility: "hidden",
-          // Keep DOM filter clean so mobile webkits never downscale the high-DPI VRAM canvas buffer
-          filter: "none",
+          filter: isMobile ? "none" : "contrast(1.06) saturate(1.14) brightness(1.03)",
         }}
       />
     );
