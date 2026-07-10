@@ -1,11 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: [
-    'codezillatech.in',
-    '*.codezillatech.in',
-    'localhost:3000'
-  ],
+  // No special output mode needed — Hostinger runs `next start` which handles standalone mode
 };
 
 export default nextConfig;
